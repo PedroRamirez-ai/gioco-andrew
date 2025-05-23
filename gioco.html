@@ -197,12 +197,35 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-document.addEventListener('mousedown', () => {
+// Area di gioco più grande
+const gameArea = document.body;
+
+gameArea.addEventListener('mousedown', (e) => {
+    if (e.target === canvas || e.target === gameArea) {
+        if (!gameRunning) {
+            startGame();
+        } else {
+            player.flying = true;
+        }
+    }
+});
+
+gameArea.addEventListener('mouseup', () => {
+    player.flying = false;
+});
+
+gameArea.addEventListener('touchstart', (e) => {
+    e.preventDefault();
     if (!gameRunning) {
         startGame();
     } else {
         player.flying = true;
     }
+});
+
+gameArea.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    player.flying = false;
 });
 
 canvas.addEventListener('mouseup', () => {
