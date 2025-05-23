@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volo Spaziale - Schiva le Meteore</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #87ceeb 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: linear-gradient(to bottom, #000428 0%, #004e92 100%);
+            border: 3px solid #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: transparent;
+        }
+        
+        #gameInfo {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+            z-index: 20;
+        }
+        
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 20;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(2px 2px at 20px 30px, #eee, transparent),
+                radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+                radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+                radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
+                radial-gradient(2px 2px at 160px 30px, #fff, transparent);
+            background-repeat: repeat;
+            background-size: 200px 100px;
+            animation: sparkle 20s linear infinite;
+        }
+        
+        @keyframes sparkle {
+            from { transform: translateX(0px); }
+            to { transform: translateX(-200px); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div class="stars"></div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        
+        <div id="gameInfo">
+            <div>Punteggio: <span id="score">0</span></div>
+            <div style="font-size: 12px; margin-top: 5px;">SPAZIO o CLIC per volare in alto</div>
+        </div>
+        
+        <div id="startScreen">
+            <h2>🚀 VOLO SPAZIALE 🌠</h2>
+            <p>Aiuta il tuo amico a volare nello spazio!</p>
+            <p>Premi <strong>SPAZIO</strong> o <strong>CLICCA</strong> per volare più in alto</p>
+            <p>Rilascia per scendere e schiva le meteore!</p>
+            <button onclick="startGame()">INIZIA A VOLARE!</button>
+        </div>
+        
+        <div id="gameOver">
+            <h2>💥 GAME OVER 💥</h2>
+            <p>Hai colpito una meteora!</p>
+            <p>Punteggio finale: <span id="finalScore">0</span></p>
+            <button onclick="restartGame()">RIPROVA</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameRunning = false;
+        let score = 0;
+        let gameSpeed = 2;
+        
+        // Player (il tuo amico che vola)
+        const player = {
+            x: 100,
+            y: 200,
+            width: 90,
+            height: 200,
+            velocityY: 0,
+            gravity: 0.2,
+            jumpPower: -5,
+            flying: false
+        };
+        
+        // Array per le meteore
+        let meteors = [];
+        
+        // Controlli
+        let keys = {};
+        
+        // MUSICA DI SOTTOFONDO
+        const backgroundMusic = new Audio();
+        backgroundMusic.src = 'musica.mp3'; // Musica rilassante temporanea
+        backgroundMusic.loop = true; // Ripete la musica
+        backgroundMusic.volume = 0.3; // Volume basso (30%)
+
+        // Funzione per iniziare la musica
+        function startMusic() {
+            backgroundMusic.play().catch(e => {
+                console.log("Musica non può partire automaticamente - clicca per iniziare");
+            });
+        }
+
+        // Funzione per fermare la musica
+        function stopMusic() {
+            backgroundMusic.pause();
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameRunning) {
+                    player.flying = true;
+                }
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+            if (e.code === 'Space') {
+                player.flying = false;
+            }
+        });
+        
+        canvas.addEventListener('mousedown', () => {
+            if (gameRunning) {
+                player.flying = true;
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            player.flying = false;
+        });
+        
+        // Disegna il giocatore (placeholder per l'immagine del tuo amico)
+        function drawPlayer() {
+            ctx.save();
+            
+            // Carica e disegna l'immagine del tuo amico
+         const img = new Image();
+         img.src = 'Andrew1.png';  
+         ctx.drawImage(img, player.x, player.y, player.width, player.height);
+        }
+        
+        // Disegna meteora
+        function drawMeteor(meteor) {
+            ctx.save();
+            
+            // Meteora principale
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.arc(meteor.x + meteor.width/2, meteor.y + meteor.height/2, meteor.width/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Dettagli meteora
+            ctx.fillStyle = '#A0522D';
+            ctx.beginPath();
+            ctx.arc(meteor.x + meteor.width/3, meteor.y + meteor.height/3, meteor.width/4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Scia di fuoco
+            ctx.fillStyle = '#FF4500';
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(meteor.x + meteor.width + i * 8, meteor.y + meteor.height/2 + (Math.random() - 0.5) * 20, 
+                       Math.max(1, 8 - i), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.restore();
+        }
+        
+        // Crea nuova meteora
+        function createMeteor() {
+            meteors.push({
+                x: canvas.width,
+                y: Math.random() * (canvas.height - 60) + 30,
+                width: 30 + Math.random() * 20,
+                height: 30 + Math.random() * 20,
+                speed: gameSpeed + Math.random() * 2
+            });
+        
+        // Effetto "volo" - scia
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          for (let i = 1; i <= 3; i++) {
+            ctx.fillRect(player.x - i * 15, player.y + 10, player.width - 10, player.height - 20);
+        }}
+        
+        // Aggiorna fisica del gioco
+        function updateGame() {
+            if (!gameRunning) return;
+            
+            // Movimento del giocatore
+            if (player.flying) {
+                player.velocityY += player.jumpPower * 0.2;
+            }
+            
+            player.velocityY += player.gravity;
+            player.y += player.velocityY;
+            
+            // Limiti schermo
+            if (player.y < 0) {
+                player.y = 0;
+                player.velocityY = 0;
+            }
+            if (player.y + player.height > canvas.height) {
+                player.y = canvas.height - player.height;
+                player.velocityY = 0;
+            }
+            
+            // Crea meteore
+            if (Math.random() < 0.02) {
+                createMeteor();
+            }
+            
+            // Aggiorna meteore
+            for (let i = meteors.length - 1; i >= 0; i--) {
+                meteors[i].x -= meteors[i].speed;
+                
+                // Rimuovi meteore fuori schermo
+                if (meteors[i].x + meteors[i].width < 0) {
+                    meteors.splice(i, 1);
+                    score += 10;
+                    continue;
+                }
+                
+                // Controllo collisioni - hitbox personalizzata per Andrew
+                    const hitboxWidth = 40;   // Hitbox più stretta dell'immagine
+                    const hitboxHeight = 20;  // Hitbox più bassa dell'immagine
+                   const hitboxX = player.x + (player.width - hitboxWidth) / 2;   // CENTRATA orizzontalmente
+                   const hitboxY = player.y + (player.height - hitboxHeight) / 2; // CENTRATA verticalmente
+
+
+                    if (meteors[i].x < hitboxX + hitboxWidth &&
+                        meteors[i].x + meteors[i].width > hitboxX &&
+                        meteors[i].y < hitboxY + hitboxHeight &&
+                        meteors[i].y + meteors[i].height > hitboxY) {
+                        gameOver();
+                        return;
+                    }
+            }
+            // Aumenta difficoltà
+            if (score > 0 && score % 100 === 0) {
+                gameSpeed += 0.1;
+            }
+            
+            // Aggiorna punteggio
+            document.getElementById('score').textContent = score;
+        }
+        
+        // Disegna tutto
+        function draw() {
+            // Pulisci canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Disegna giocatore
+            drawPlayer();
+            
+            // Disegna meteore
+            meteors.forEach(drawMeteor);
+        }
+        
+        // Loop di gioco
+        function gameLoop() {
+            updateGame();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Inizia gioco
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            gameSpeed = 2;
+            meteors = [];
+            startMusic(); // Inizia la musica
+            player.y = 200;
+            player.velocityY = 0;
+            
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            stopMusic(); // Ferma la musica
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+        
+        // Riavvia gioco
+        function restartGame() {
+            startGame();
+        }
+        
+        // Avvia il loop di gioco
+        gameLoop();
+    </script>
+</body>
+</html>
