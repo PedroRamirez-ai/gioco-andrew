@@ -198,7 +198,9 @@ document.addEventListener('keyup', (e) => {
 });
 
 canvas.addEventListener('mousedown', () => {
-    if (gameRunning) {
+    if (!gameRunning) {
+        startGame();
+    } else {
         player.flying = true;
     }
 });
@@ -220,12 +222,6 @@ canvas.addEventListener('touchend', (e) => {
     player.flying = false;
 });
 
-// Click per iniziare il gioco
-canvas.addEventListener('click', () => {
-    if (!gameRunning) {
-        startGame();
-    }
-});
         
         // Disegna il giocatore (placeholder per l'immagine del tuo amico)
         function drawPlayer() {
