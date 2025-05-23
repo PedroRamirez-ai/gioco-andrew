@@ -177,7 +177,7 @@
             backgroundMusic.pause();
         }
 
-        // Event listeners
+       // Event listeners per tastiera (mantieni questi)
 document.addEventListener('keydown', (e) => {
     keys[e.code] = true;
     if (e.code === 'Space') {
@@ -197,24 +197,25 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-// Area di gioco più grande
-const gameArea = document.body;
+// Event listeners per mouse/touch - SOLUZIONE SEMPLICE
+let isMouseDown = false;
 
-gameArea.addEventListener('mousedown', (e) => {
-    if (e.target === canvas || e.target === gameArea) {
-        if (!gameRunning) {
-            startGame();
-        } else {
-            player.flying = true;
-        }
+document.addEventListener('mousedown', (e) => {
+    isMouseDown = true;
+    if (!gameRunning) {
+        startGame();
+    } else {
+        player.flying = true;
     }
 });
 
-gameArea.addEventListener('mouseup', () => {
+document.addEventListener('mouseup', () => {
+    isMouseDown = false;
     player.flying = false;
 });
 
-gameArea.addEventListener('touchstart', (e) => {
+// Per mobile
+document.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (!gameRunning) {
         startGame();
@@ -223,25 +224,13 @@ gameArea.addEventListener('touchstart', (e) => {
     }
 });
 
-gameArea.addEventListener('touchend', (e) => {
+document.addEventListener('touchend', (e) => {
     e.preventDefault();
     player.flying = false;
 });
 
-canvas.addEventListener('mouseup', () => {
-    player.flying = false;
-});
-
-// Touch per mobile
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (gameRunning) {
-        player.flying = true;
-    }
-});
-
-canvas.addEventListener('touchend', (e) => {
-    e.preventDefault();
+// Sicurezza extra - ferma il volo se il mouse esce dalla finestra
+document.addEventListener('mouseleave', () => {
     player.flying = false;
 });
 
